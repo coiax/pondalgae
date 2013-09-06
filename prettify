@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+import argparse
+
+import algae
+def _main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename')
+    ns = parser.parse_args()
+    with open(ns.filename) as f:
+        memory = algae.multiline_parse(f.read())
+    print(algae.pretty_print_memory(memory,colour=True))
+
+if __name__=='__main__':
+    _main()
