@@ -317,7 +317,7 @@ class Interpreter(object):
         elif opcode == Opcode.LADAR:
             # The callback will be called with the answer.
             def callback(answer):
-                self._set_value(dest_mode, dest_address)
+                self._set_value(dest_mode, dest_address, answer)
             raise LadarEnder(callback)
 
 def opcode_cost(opcode):
@@ -336,19 +336,19 @@ class AlgaeEnder(Exception):
 
 class SniffEnder(AlgaeEnder):
     def __init__(self, type, callback):
-        super(SniffEnder, self).__init__(self)
+        AlgaeEnder.__init__(self)
         self.type = type
         self.callback = callback
 
 class NudgeEnder(AlgaeEnder):
     def __init__(self, word_index, value):
-        super(NudgeEnder, self).__init__(self)
+        AlgaeEnder.__init__(self)
         self.word_index = word_index
         self.value = value
 
 class TeachEnder(AlgaeEnder):
     def __init__(self, word_index, value):
-        super(TeachEnder, self).__init__(self)
+        AlgaeEnder.__init__(self)
         self.word_index = word_index
         self.value = value
 
@@ -360,12 +360,12 @@ class HandoffEnder(AlgaeEnder):
 
 class ProcureEnder(AlgaeEnder):
     def __init__(self, amount):
-        super(ProcureEnder, self).__init__(self)
+        AlgaeEnder.__init__(self)
         self.amount = amount
 
 class BestowEnder(AlgaeEnder):
     def __init__(self, amount):
-        super(BestowEnder, self).__init__(self)
+        AlgaeEnder.__init__(self)
         self.amount = amount
 
 class StopEnder(AlgaeEnder):
@@ -373,7 +373,7 @@ class StopEnder(AlgaeEnder):
 
 class MoveEnder(AlgaeEnder):
     def __init__(self, cutoff_point, fuel):
-        super(MoveEnder, self).__init__(self)
+        AlgaeEnder.__init__(self)
         self.cutoff_point = cutoff_point
         self.fuel = fuel
 
@@ -490,30 +490,40 @@ def multiline_parse(text):
         line = line.strip()
         if not line or line.startswith('#'):
             continue
-        mo = re.match("^\w+(?i)((?P<label>[A-Z_]):)?\w+(?P<remaining>.*)$",
-                      line)
+        mo = re.match("(?i)(?P<label>[A-Z_]+:)?\s*(?P<remaining>.*)", line)
         assert mo is not None
 
-        references[mo.group('label')] = line_number
+        label = mo.group('label')
+        if label is not None:
+            label = label[:-1].upper()
+            references[label] = line_number
+
         remaining = mo.group('remaining')
         codes.append(remaining)
         line_number += 1
 
-    for i, code in codes:
+    for i, code in enumerate(codes):
         fields = line_parse(code)
+
+        opcode = fields[0]
+        src_mode = fields[1]
 
         src_addr = fields[2]
         if type(src_addr) == str:
             src_addr = references[src_addr]
 
-        dest_addr = fields[2]
+        dest_mode = fields[3]
+
+        dest_addr = fields[4]
         if type(dest_addr) == str:
             dest_addr = references[dest_addr]
 
-        bs = bitstring.pack(INSTRUCTION_FORMAT, fields[0], fields[1],
-                            src_addr, fields[2], dest_addr)
+        bs = bitstring.pack(INSTRUCTION_FORMAT,
+                            opcode,
+                            src_mode, src_addr,
+                            dest_mode, dest_addr)
         memory.overwrite(bs)
-    return memory
+    return memory, len(codes)
 
 def line_parse(string, return_bitstring=False):
     return _tuple_interpret(_regex_extract(string),
@@ -522,34 +532,26 @@ def line_parse(string, return_bitstring=False):
 def _regex_extract(string):
     regexfmt = (r'(?i)'
            r'(?P<opcode>[A-Z_]+)'
-           r'(?P<flags>\.[A-Z]+)?'
-           r'[ ]*'
-           r'(?P<src>(<ACC>)|([$#@]?\(d+|[A-Z_]+))?'
-           r'[ ]*'
-           r'(?P<dest>(<ACC>)|([$#@]?(\d+|[A-Z_]+))?'
-           r'(?:\w+[#].*$)?' # ignore comments at the end.
+           r'\s*'
+           r'(?P<src>(<ACC>)|([$#@]?(\d+|[A-Z_]+)))?'
+           r'\s*'
+           r'(?P<dest>(<ACC>)|([$#@]?(\d+|[A-Z_]+)))?'
+           r'(\s*#.*)?' # ignore comments at the end.
           )
     mo = re.match(regexfmt, string)
     if mo is None:
         raise TypeError("Bad input line.") # TODO check if better exception?
 
     opcode_str = mo.group('opcode').upper()
-    flags_str = mo.group('flags') or ''
     src_str = mo.group('src') or ''
     dest_str = mo.group('dest') or ''
 
-    return (opcode_str, flags_str.upper(), src_str.upper(), dest_str.upper())
+    return (opcode_str, src_str.upper(), dest_str.upper())
 
 def _tuple_interpret(tup, return_bitstring):
-    opcode_str, flags_str, src_str, dest_str = tup
+    opcode_str, src_str, dest_str = tup
 
     opcode = Opcode[opcode_str.upper()]
-
-    # chop off the leading '.'
-    flags = list(flags_str[1:])
-    flags.sort()
-    # XXX flags are not currently used, but might alter the opcode or
-    # something.
 
     def interpret(str):
         if not str:
@@ -686,7 +688,22 @@ def _make_parser():
 
     parser_thrash.set_defaults(func=_thrash)
 
+    parser_parse = subparsers.add_parser('parse')
+    parser_parse.add_argument('file')
+
+    parser_parse.set_defaults(func=_parse)
+
+
     return parser
+
+def _parse(namespace):
+    with open(namespace.file) as f:
+        txt = f.read()
+    memory, instructions = multiline_parse(txt)
+    words = []
+    for i in range(instructions):
+        words.append(pretty_print_word(memory[i*WORD_BITS:]))
+    print("\n".join(words))
 
 def _thrash(namespace):
     seeds = ns.seeds

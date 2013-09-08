@@ -71,11 +71,19 @@ class Pond(object):
             coord = self._random.choice(self.normal_space)
         self.pond[coord] = cell = Cell(energy=START_ENERGY,
                                        randomised=self._random)
-        soul = algae.random_soul(random=self._random)
 
-        # souls are used as dictionary keys, and are immutable.
-        cell.soul = soul
+        self.alive.add(coord)
+        self.run_cell(coord)
 
+    def spawn(self, memory, soul=None, coord=None):
+        if coord is None:
+            coord = self._random.choice(self.normal_space)
+
+        if soul is None:
+            soul = algae.random_soul(random=self._random)
+
+        cell = Cell(energy=START_ENERGY, soul=soul, memory=memory)
+        self.pond[coord] = cell
         self.alive.add(coord)
         self.run_cell(coord)
 
@@ -90,6 +98,7 @@ class Pond(object):
         while True:
             try:
                 try:
+                    cell.energy = interpreter.energy
                     interpreter(self._verbose or cell.debug)
                 except algae.AlgaeEnder:
                     interpreter.write_cell(cell)
@@ -299,18 +308,27 @@ def apply_direction(coord, direction):
 
 
 class Cell(object):
-    def __init__(self, energy=0, randomised=False):
+    def __init__(self, energy=0, memory=None, soul=None, randomised=False):
         if not randomised:
-            self.memory = bitstring.BitStream(WORD_BITS * MEMORY_WORDS)
+            if memory is not None and soul is None:
+                soul = algae.random_soul()
+
+            if memory is None:
+                memory = bitstring.BitStream(WORD_BITS * MEMORY_WORDS)
+            self.memory = memory
+            self.soul = soul 
+
         else:
             try:
                 randomised.random
             except AttributeError:
                 self.randomise()
+                self.soul = algae.random_soul()
             else:
                 self.randomise(random=randomised)
+                self.soul = algae.random_soul(random=randomised)
+
         self._energy = energy
-        self.soul = None
         self.debug = False
         self.inanimate = False
 
@@ -323,14 +341,15 @@ class Cell(object):
     energy = property(get_energy, set_energy)
 
     def __repr__(self):
-        fmt = "<{name} soul={soul} energy={energy}>"
+        fmt = "<{name} soul={soul} energy={energy} colour={colour}>"
         name = self.__class__.__name__
         if self.soul is not None:
             soul = ''.join(('0x', self.soul.hex))
         else:
             soul = None
 
-        return fmt.format(name=name, soul=soul, energy=self.energy)
+        return fmt.format(name=name, soul=soul, energy=self.energy,
+                          colour=self.colour)
 
     def __eq__(self, other):
         try:
@@ -344,7 +363,7 @@ class Cell(object):
         self.memory = algae.random_memory(random=random)
 
     def can_access(self, other):
-        if not self.alive:
+        if not other.alive:
             return True
         elif self.soul == other.soul:
             return True

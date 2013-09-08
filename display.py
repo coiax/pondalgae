@@ -32,6 +32,8 @@ import pond
 from constants import *
 
 class PondWindow(pyglet.window.Window):
+    light_visualise = False
+
     def __init__(self, *args, **kwargs):
         super(PondWindow, self).__init__(*args, **kwargs)
 
@@ -68,7 +70,7 @@ class PondWindow(pyglet.window.Window):
 
             if draw:
                 self._set_pixel(coord, cell.colour)
-            else:
+            elif self.light_visualise:
                 light_level = self.pond.light_level[coord]
 
                 r = random.Random(light_level)
@@ -88,23 +90,20 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-v','--verbose',action='store_true')
     parser.add_argument('-f','--file',default=None)
+    parser.add_argument('--light-visualise',action='store_true')
+    parser.add_argument('--seed',type=int,default=0)
     ns = parser.parse_args()
 
 
     window = PondWindow()
+    window.light_visualise = ns.light_visualise
+    pond = window.pond
+    pond._random.seed(ns.seed)
 
     if ns.file is not None:
         with open(ns.file) as f:
-            memory = algae.multiline_parse(f.read())
-        coord = random.choice(window.pond.normal_space)
-        print(coord)
-
-        cell = window.pond.pond[coord]
-        window.pond.alive.add(coord)
-        cell.energy = 500
-        cell.memory = memory
-        cell.soul = bitstring.Bits(bytes="COOL")
-        cell.debug = True
+            memory, size = algae.multiline_parse(f.read())
+            pond.spawn(memory=memory)
 
     window.pond._verbose = ns.verbose
     pyglet.app.run()

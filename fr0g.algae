@@ -14,41 +14,53 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-ADD #1 $25
-SNIFF #0 <ACC>
-SKIPLESS #500 <ACC>
-BASK
-JUMP $24 #26
-RANDOM <ACC> <ACC>
-ZERO #0 $22
-ADD #1 $22
-ADD #1 <ACC>
-SKIPLESS $22 #8
-JUMP #1 #36
-FACE <ACC> <ACC>
-LADAR #0 $23
-SKIP $23 #6
-JUMP #1 #7
-ZERO #0 $22
-TEACH $22 @22
-ADD #1 $22
-SKIPLESS #45 $22
-JUMP #1 #16
-BESTOW #25
-HANDOFF
-NOOP 0 0
-NOOP 0 0
-NOOP 0 0
-NOOP 0 0
-SNIFF #0 <ACC>
-SUBTRACT #50 <ACC>
-SKIPLESS #1000 <ACC>
-BASK
-ZERO $23 $23
-ZERO <ACC> <ACC>
-ADD $0 <ACC>
-RANDOM <ACC> <ACC>
-FACE <ACC> <ACC>
-MOVE #45 #1000
-ADD #1 $24
-JUMP #1 #0
+n:              NOOP
+                ADD #1 $n
+
+start:          SNIFF #0 <ACC>
+energy_check:   SKIPLESS #500 <ACC>
+                BASK
+
+warp_skip:      SKIP
+                JUMP #warp
+
+                RANDOM $n <ACC>
+                ZERO $1001
+
+rotation:       ADD #1 $1001
+                ADD #1 <ACC>
+                SKIPLESS $1001 #8
+                JUMP #first_warp
+                FACE <ACC>
+                LADAR #0 $1002
+                SKIP $1002 #6
+                JUMP #rotation
+
+                ZERO $1001
+teach_loop:     TEACH $1001 @1001
+                ADD #1 $1001
+                SKIPLESS #end $1001
+                JUMP #teach_loop
+                BESTOW #25
+                HANDOFF
+
+#               Modify the energy check at the start to check for 1000
+first_warp:     COPY $energy_check $1003
+                COPY $hienergy_check $energy_check
+
+#               Disable the skip, so we jump here from now on.
+                COPY $warp_skip $1004
+                ZERO $warp_skip
+#               Then start again.
+                JUMP $start
+
+hienergy_check: SKIPLESS #1000 <ACC>
+
+#               Renable the skip, let the kids build up first.
+warp:           COPY $1004 $warp_skip
+#               Also restore the basic energy levels.
+                COPY $1003 $energy_check
+#               Then pick a direction and dance.
+                RANDOM $n <ACC>
+                FACE <ACC>
+end:            MOVE #end #975
