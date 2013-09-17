@@ -1,0 +1,7 @@
+bitstring==3.1.2
+cffi==0.6
+flufl.enum==4.0
+greenlet==0.4.0
+pycallgraph==1.0.1
+pyglet==1.1.4
+wsgiref==0.1.2

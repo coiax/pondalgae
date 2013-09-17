@@ -28,13 +28,21 @@ START_ENERGY = 500
 NUMBER_OF_SUNS = 3
 SUN_MAX_BRIGHTNESS = 100000
 
-def LIGHT_FADE(distance):
-    try:
-        inverse = 1 / float(distance)
-    except ZeroDivisionError:
-        inverse = 1
+_light_fade_cache = {}
 
-    return SUN_MAX_BRIGHTNESS * inverse
+def LIGHT_FADE(distance, cache=_light_fade_cache):
+    if distance in cache:
+        return cache[distance]
+
+    else:
+        try:
+            inverse = 1 / float(distance)
+        except ZeroDivisionError:
+            inverse = 1
+
+    result = SUN_MAX_BRIGHTNESS * inverse
+    cache[distance] = result
+    return result
             
 
 

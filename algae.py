@@ -144,7 +144,7 @@ class Interpreter(object):
         except ValueError:
             pass
 
-        self.energy -= opcode_cost(opcode)
+        self.energy -= OPCODE_COST[opcode]
         # Attemtping to run an opcode that costs into the negatives doesn't
         # work, and all your energy disappears anyway.
         if self.energy < 0:
@@ -320,16 +320,19 @@ class Interpreter(object):
                 self._set_value(dest_mode, dest_address, answer)
             raise LadarEnder(callback)
 
-def opcode_cost(opcode):
+OPCODE_COST = {}
+for opcode in Opcode:
     if opcode in PRICEY_OPCODES:
-        return 5
+        value = 5
     elif opcode == Opcode.NOOP:
         # XXX Remember, if we have addressing modes that modify values
         # they still need to cost energy. You don't get something for nothing.
-        return 0
+        value = 0
     else:
-        return 1
+        value = 1
+    OPCODE_COST[opcode] = value
 
+del opcode
 
 class AlgaeEnder(Exception):
     pass

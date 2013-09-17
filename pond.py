@@ -19,6 +19,7 @@ import sys
 import random
 import struct
 import collections
+import os.path
 
 import bitstring
 
@@ -28,7 +29,7 @@ from constants import *
 class Pond(object):
     def __init__(self, size=(640,480)):
         self.size = size
-        self._random = random.Random(0)
+        self._random = random.Random(3)
         self._verbose = False
 
         self.alive = set()
@@ -43,6 +44,9 @@ class Pond(object):
                 self.normal_space.append((i,j))
 
         self.light_level = collections.defaultdict(int)
+        self._generate_suns()
+
+    def _generate_suns(self):
         sun_coords = self._random.sample(self.normal_space, NUMBER_OF_SUNS)
 
         for sun_coord in sun_coords:
@@ -53,8 +57,8 @@ class Pond(object):
 
                 self.light_level[coord] += LIGHT_FADE(distance_squared)
 
-        for key, value in self.light_level.items():
-            self.light_level[key] = int(value)
+        for key in self.light_level:
+            self.light_level[key] = int(self.light_level[key])
 
 
     def tick(self, N):
@@ -406,5 +410,29 @@ def pond_time():
         pond.tick(N)
         N += 1
 
+def _main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename')
+    parser.add_argument('-n','--number-of-ticks',type=int,default=10000,
+                        dest='N')
+
+    namespace = parser.parse_args()
+
+    _realmain(namespace.N, namespace.filename)
+
+def _realmain(N, filename):
+    assert os.path.exists(filename)
+    pond = Pond()
+    with open(filename) as f:
+        txt = f.read()
+    memory, instructions = algae.multiline_parse(txt)
+    pond.spawn(memory=memory)
+
+    for i in range(N):
+        pond.tick(i)
+
+
 if __name__=='__main__':
-    pond_time()
+    _main()
