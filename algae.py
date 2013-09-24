@@ -144,7 +144,7 @@ class Interpreter(object):
         except ValueError:
             pass
 
-        self.energy -= OPCODE_COST[opcode]
+        self.energy -= OPCODE_COST.get(opcode, 1)
         # Attemtping to run an opcode that costs into the negatives doesn't
         # work, and all your energy disappears anyway.
         if self.energy < 0:
